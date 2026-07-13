@@ -1,29 +1,41 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#f5f7fb"><title>JSD · 도시 소음 지킴이</title><style>html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Segoe UI",sans-serif;background:#f5f7fb;color:#172033}#boot{min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px}#boot b{display:block;color:#153b73;font-size:20px}#boot span{display:block;margin-top:8px;color:#68758b;font-size:12px}</style></head><body><div id="boot"><div><b>JSD 도시 소음 지킴이</b><span>사이트를 불러오는 중입니다.</span></div></div><script>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#f5f7fb"><title>JSD · 도시 소음 지킴이</title><style>html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Segoe UI",sans-serif;background:#f5f7fb;color:#172033}#boot{min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px}#boot b{display:block;color:#153b73;font-size:20px}#boot span{display:block;margin-top:8px;color:#68758b;font-size:12px;line-height:1.6;word-break:break-word;max-width:560px}</style></head><body><div id="boot"><div><b>JSD 도시 소음 지킴이</b><span>사이트를 불러오는 중입니다.</span></div></div><script>
 (async()=>{
   const DEFAULT_GAS_URL='https://script.google.com/macros/s/AKfycbwHY7B15trgsBZZcug2snywAO2AVg8LfmpshAdxlGa0Afe9d_yW-tyaewmSOix5IrEl/exec';
-  const savedGasUrl=localStorage.getItem('jsd_gas_url')||'';
-  const validGasUrl=/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec(?:\?.*)?$/.test(savedGasUrl.trim());
-  if(!validGasUrl) localStorage.setItem('jsd_gas_url',DEFAULT_GAS_URL);
-  const ungzip=async url=>{
-    const r=await fetch(url,{cache:'no-cache'}); if(!r.ok) throw new Error(`${url} 로드 실패`);
-    if(!('DecompressionStream' in window)) throw new Error('이 브라우저는 압축 해제를 지원하지 않습니다. 최신 Chrome을 사용해 주세요.');
-    const stream=r.body.pipeThrough(new DecompressionStream('gzip'));
-    return await new Response(stream).text();
+  const saved=localStorage.getItem('jsd_gas_url');
+  if(!saved||!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/i.test(saved)) localStorage.setItem('jsd_gas_url',DEFAULT_GAS_URL);
+
+  const decodeAsset=async url=>{
+    let r;
+    try{r=await fetch(url+'?v=20260713-2',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
+    if(!r.ok) throw new Error(`${url} 로드 실패 (${r.status})`);
+    let bytes;
+    try{bytes=new Uint8Array(await r.arrayBuffer());}catch(error){throw new Error(`${url} 읽기 실패: ${error.message||error}`);}
+    const isGzip=bytes.length>2&&bytes[0]===0x1f&&bytes[1]===0x8b;
+    if(!isGzip) return new TextDecoder('utf-8').decode(bytes);
+    if(!('DecompressionStream' in window)) throw new Error('이 브라우저는 gzip 압축 해제를 지원하지 않습니다. 최신 Chrome 또는 Edge를 사용해 주세요.');
+    try{
+      const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return await new Response(stream).text();
+    }catch(error){throw new Error(`${url} 압축 해제 실패: ${error.message||error}`);}
   };
+
   try{
     const [html,css,js1,js2]=await Promise.all([
-      ungzip('/assets/index.html.gz'),ungzip('/assets/styles.css.gz'),ungzip('/assets/app-1.js.gz'),ungzip('/assets/app-2.js.gz')
+      decodeAsset('/assets/index.html.gz'),decodeAsset('/assets/styles.css.gz'),decodeAsset('/assets/app-1.js.gz'),decodeAsset('/assets/app-2.js.gz')
     ]);
     const parsed=new DOMParser().parseFromString(html,'text/html');
     parsed.querySelectorAll('script').forEach(el=>el.remove());
     parsed.querySelectorAll('link[href="styles.css"]').forEach(el=>el.remove());
     document.documentElement.lang=parsed.documentElement.lang||'ko';
     document.head.innerHTML=parsed.head.innerHTML;
-    const style=document.createElement('style'); style.textContent=css; document.head.appendChild(style);
+    const style=document.createElement('style');style.textContent=css;document.head.appendChild(style);
     document.body.replaceWith(parsed.body);
     const run=()=>{const s=document.createElement('script');s.textContent=js1+js2;document.body.appendChild(s)};
-    if(window.L) run(); else {const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.crossOrigin='';s.onload=run;s.onerror=run;document.body.appendChild(s)}
-  }catch(error){console.error(error);document.body.innerHTML=`<div id="boot"><div><b>사이트를 불러오지 못했습니다.</b><span>${String(error.message||error)}</span></div></div>`}
+    if(window.L)run();else{const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.crossOrigin='';s.onload=run;s.onerror=run;document.body.appendChild(s);}
+  }catch(error){
+    console.error(error);
+    document.body.innerHTML=`<div id="boot"><div><b>사이트를 불러오지 못했습니다.</b><span>${String(error.message||error)}<br>잠시 후 새로고침해 주세요.</span></div></div>`;
+  }
 })();
 </script></body></html>

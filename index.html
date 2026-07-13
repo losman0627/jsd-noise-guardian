@@ -1,121 +1,25 @@
 <!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#f5f7fb">
-  <meta name="description" content="JSD 도시 소음 지킴이 — 소음 측정, 실시간 주파수 분석, ANC 원리 실험, 소음 지도와 AI 안내">
-  <title>JSD · 도시 소음 지킴이 v4.3</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://unpkg.com" crossorigin>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body data-theme="light">
-  <div class="splash" id="splash" aria-hidden="true">
-    <svg viewBox="0 0 300 160" aria-hidden="true">
-      <circle class="sp-wave w1" cx="150" cy="80" r="70"/><circle class="sp-wave w2" cx="150" cy="80" r="85"/><circle class="sp-wave w3" cx="150" cy="80" r="100"/>
-      <path class="sp-j" d="M128 30C132 55 133 85 122 102C112 116 88 114 82 98"/><path class="sp-jdot" d="M124 12C130 8 138 10 139 17C140 24 132 27 126 24C121 21 120 15 124 12Z"/><path class="sp-link" d="M122 102C138 112 152 108 160 92"/><path class="sp-d1" d="M172 26L170 104"/><path class="sp-d2" d="M172 30C216 32 226 92 172 100"/>
-    </svg>
-    <h1>JSD <span>소리 정의 연구소</span></h1><p>도시는 더 조용해질 수 있다.</p>
-  </div>
-
-  <div class="app-shell">
-    <header class="topbar">
-      <button class="brand-button" type="button" data-nav="home" aria-label="홈으로 이동">
-        <svg class="logo" viewBox="0 0 300 160" aria-hidden="true">
-          <path d="M128 30C132 55 133 85 122 102C112 116 88 114 82 98" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
-          <path d="M124 12C130 8 138 10 139 17C140 24 132 27 126 24C121 21 120 15 124 12Z" fill="currentColor"/>
-          <path d="M122 102C138 112 152 108 160 92" fill="none" stroke="#ffd400" stroke-width="9" stroke-linecap="round"/>
-          <path d="M172 26L170 104M172 30C216 32 226 92 172 100" fill="none" stroke="#ffd400" stroke-width="16" stroke-linecap="round"/>
-        </svg>
-        <span><b>도시 소음 지킴이</b><small>JSD · 소리 정의 연구소</small></span>
-      </button>
-      <button id="serverStatus" class="server-status busy" type="button"><i></i><span>연결 중</span></button>
-      <button id="themeButton" class="icon-button" type="button" aria-label="화면 테마 전환">◐</button>
-    </header>
-
-    <main>
-      <section id="screen-home" class="screen active">
-        <article class="hero card">
-          <p class="hero-kicker">도시는 더 조용해질 수 있다.</p>
-          <h1>지금 있는 곳의 소음을<br>쉽게 확인해 보세요.</h1>
-          <div class="hero-reading"><strong id="homeDb">--</strong><span>dB</span></div>
-          <p id="homeSummary">측정을 시작하면 소음 크기와 주요 주파수를 보여드립니다.</p>
-          <button class="button primary" type="button" data-nav="measure">소음 측정 시작</button>
-        </article>
-
-        <h2 class="section-heading">핵심 실험 기능</h2>
-        <article class="anc-feature card">
-          <div class="anc-feature-head"><div><p>ADAPTIVE ANC LAB</p><small>측정 후 자동 분석</small></div><span>〰</span></div>
-          <h2>강한 저주파를 찾아<br>반대 위상으로 자동 보정</h2>
-          <p>마이크가 감지한 40~600Hz의 강한 피크를 추적하고, 고정된 위치에서 잔류음이 작아지도록 위상을 다시 맞춥니다.</p>
-          <canvas id="homeFreqCanvas" width="760" height="170"></canvas>
-          <div class="mini-live"><span>현재 피크</span><b id="homePeak">-- Hz</b><small id="homePeakStatus">측정 대기</small></div>
-          <div class="button-row"><button class="button primary" type="button" data-nav="anc">ANC 기능 열기</button><button class="button soft" id="openAncGuide" type="button">원리·사용법</button></div>
-        </article>
-
-        <h2 class="section-heading">빠른 메뉴</h2>
-        <div class="quick-grid">
-          <button class="quick-card" type="button" data-nav="map"><span>🗺️</span><b>전국 소음 지도</b><small>공식 지점과 실시간 시민값 확인</small></button>
-          <button class="quick-card" type="button" data-nav="measure"><span>〰️</span><b>주파수 실시간 분석</b><small>외부 소음의 강한 피크 변화 확인</small></button>
-          <button class="quick-card" type="button" data-nav="ai"><span>💬</span><b>AI 소음 상담</b><small>실제 LLM 연결 상태 표시</small></button>
-          <button class="quick-card" id="openReport" type="button"><span>📝</span><b>민원 기록 도우미</b><small>상황 문안과 공식 창구</small></button>
-        </div>
-
-        <h2 class="section-heading">현재 분석</h2>
-        <article class="card metric-grid home-metrics">
-          <div><span>주요 주파수</span><b id="homeFreq">--</b><small>Hz</small></div>
-          <div><span>소음 유형</span><b id="homeType" class="small-metric">측정 전</b><small>기기 분석</small></div>
-          <div><span>환경 점수</span><b id="homeScore">--</b><small>100점</small></div>
-          <div><span>ANC 대상</span><b id="homeAnc" class="small-metric">미확인</b><small>강한 저주파 피크</small></div>
-        </article>
-        <span id="homeMic" class="sr-only">마이크 미사용</span>
-
-        <h2 class="section-heading split">소음 관련 소식 <button type="button" data-nav="news">전체 보기</button></h2>
-        <article class="card news-preview" id="newsList"><p class="page-subtitle no-margin">기사를 불러오는 중입니다.</p></article>
-
-        <h2 class="section-heading">연구 중인 생활환경 솔루션</h2>
-        <article class="product-card"><b>더 편안하게 쉬고 집중할 수 있는 공간</b><p>커튼형 다층 소재와 저주파 제어 기술을 결합해 불필요한 소음 노출을 줄이는 방법을 연구합니다.</p></article>
-      </section>
-
-      <section id="screen-measure" class="screen">
-        <p class="eyebrow">Measure</p><h1 class="page-title">소음 측정</h1><p class="page-subtitle">숫자를 안정화하고 가장 강한 주파수 피크를 찾습니다.</p>
-        <article class="card gauge-card">
-          <div class="gauge"><svg viewBox="0 0 220 220"><circle class="gauge-track" cx="110" cy="110" r="86"/><circle id="gaugeFill" class="gauge-fill" cx="110" cy="110" r="86"/></svg><div class="gauge-center"><strong id="dbValue">--</strong><span>추정 dB(A)</span><b id="dbGrade">대기 중</b></div></div>
-          <div class="metric-grid"><div><span>평균</span><b id="dbAvg">--</b><small>dB</small></div><div><span>최대</span><b id="maxDb">--</b><small>dB</small></div><div><span>주요 주파수</span><b id="dominantFreq">--</b><small>Hz</small></div><div><span>안정도</span><b id="freqStability">--</b><small>%</small></div></div>
-          <div class="button-row top-gap"><button id="startMeasure" class="button primary" type="button">측정 시작</button><button id="stopMeasure" class="button danger" type="button" disabled>완전 정지</button></div><p id="measureStatus" class="status-text">시작하면 마이크 권한을 요청합니다.</p>
-        </article>
-        <h2 class="section-heading">실시간 주파수 분석</h2><article class="card"><div class="chart-title"><b>40–600Hz 스펙트럼</b><span id="spectrumMode">자동 피크 탐색</span></div><canvas id="spectrumCanvas" width="760" height="270"></canvas><div id="peakList" class="peak-list"><span>피크 정보가 없습니다.</span></div><canvas id="historyCanvas" width="760" height="230"></canvas></article>
-        <h2 class="section-heading">측정 반응과 마이크</h2><article class="card"><div class="range-field"><div><label for="responseSpeed">표시 반응</label><output id="responseSpeedLabel">안정형</output></div><input id="responseSpeed" type="range" min="1" max="3" step="1" value="1"></div><label class="field-label" for="micSelect">입력 장치</label><select id="micSelect" class="input"><option value="">시스템 기본 마이크</option></select><div class="button-row top-gap"><button id="reconnectMic" class="button soft" type="button">마이크 다시 연결</button><button id="refreshDevices" class="button soft" type="button">장치 새로고침</button></div><div class="range-field"><div><label for="calibration">음량 보정값</label><output id="calibrationOutput">100 dB</output></div><input id="calibration" type="range" min="75" max="120" step="1" value="100"></div><div id="trackSettings" class="device-box">마이크를 시작하면 실제 설정이 표시됩니다.</div></article>
-        <h2 class="section-heading">테스트 주파수 지정</h2><article class="card"><div class="inline-field"><input id="expectedFrequency" class="input" type="number" min="40" max="600" placeholder="예: 300"><button id="applyExpected" class="button soft compact" type="button">적용</button><button id="clearExpected" class="button soft compact" type="button">자동</button></div><div class="preset-row"><button type="button" data-expected="100">100Hz</button><button type="button" data-expected="160">160Hz</button><button type="button" data-expected="200">200Hz</button><button type="button" data-expected="300">300Hz</button><button type="button" data-expected="400">400Hz</button></div></article>
-        <article class="card"><div class="button-row"><button id="currentLocation" class="button soft" type="button">현재 위치</button><button id="saveMap" class="button soft" type="button" disabled>지도 기록</button></div><div class="button-row top-gap"><button id="saveLocal" class="button soft" type="button" disabled>기기에 저장</button><button id="saveServer" class="button soft" type="button" disabled>서버에 저장</button></div><span id="instantDb" class="sr-only">--</span><span id="freqConfidence" class="sr-only">--</span></article>
-      </section>
-
-      <section id="screen-anc" class="screen">
-        <p class="eyebrow">Adaptive ANC Lab</p><h1 class="page-title">강한 주파수 ANC</h1><p class="page-subtitle">현재 들리는 소리 중 강한 40~600Hz 피크를 선택하고 목표를 고정합니다.</p><div class="warning-box">브라우저·일반 스피커 ANC는 원리 실험입니다. 출력은 매우 낮게 시작하고 불편하면 즉시 정지하세요.</div>
-        <article class="card"><canvas id="ancFlowCanvas" width="760" height="170"></canvas><div class="metric-grid"><div><span>현재 피크</span><b id="ancCurrentFreq">--</b><small>Hz</small></div><div><span>대상 상태</span><b id="ancPeakState" class="small-metric">탐색 전</b></div></div></article>
-        <h2 class="section-heading">잠금 상태</h2><article class="card"><div class="anc-lock-display"><span>대상 주파수</span><strong id="lockedFrequency">-- Hz</strong><small id="lockState">아직 잠그지 않았습니다.</small></div><div class="lock-grid"><div><span>주파수</span><i id="freqLock"></i></div><div><span>위상</span><i id="phaseLock"></i></div><div><span>감소량</span><i id="reductionLock"></i></div></div><p id="ancStatus" class="status-text">자동 시작을 누르면 측정과 피크 탐색을 시작합니다.</p><div class="anc-live" id="ancLive"><i></i><span id="ancModeText">대기</span></div><div class="button-row top-gap"><button id="startAnc" class="button primary" type="button">가장 강한 주파수 ANC 시작</button><button id="stopAnc" class="button danger" type="button" disabled>즉시 정지</button></div><div class="button-row top-gap"><button id="retuneAnc" class="button soft" type="button">다시 맞추기</button><button id="ancGuideButton" class="button soft" type="button">원리·사용법</button></div><button id="advancedToggle" class="button soft full top-gap" type="button">고급 설정 보기</button></article>
-        <article id="advancedPanel" class="card advanced-panel"><label class="field-label" for="manualAncFrequency">수동 목표 주파수</label><div class="inline-field"><input id="manualAncFrequency" class="input" type="number" min="40" max="600" placeholder="예: 300"><button id="applyManualAnc" class="button soft compact" type="button">잠금</button></div><div class="button-row top-gap"><button id="captureTarget" class="button soft" type="button">현재 피크 잠금</button><button id="unlockTarget" class="button soft" type="button">잠금 해제</button></div><div class="range-field"><div><label for="ancOutput">상쇄음 크기</label><output id="ancOutputValue">20%</output></div><input id="ancOutput" type="range" min="2" max="50" value="20"></div><div class="range-field"><div><label for="ancPhase">수동 위상</label><output id="ancPhaseValue">180°</output></div><input id="ancPhase" type="range" min="0" max="359" value="180"></div><label class="field-label" for="outputSelect">출력 장치</label><select id="outputSelect" class="input"><option value="">시스템 기본 출력</option></select><button id="checkOutput" class="button soft full top-gap" type="button">출력 장치 확인</button><p id="outputSupport" class="help">브라우저에서 선택할 수 없으면 Android 미디어 출력에서 유선 스피커를 선택하세요.</p></article>
-        <h2 class="section-heading">잔류 주파수 추적</h2><article class="card"><div class="metric-grid"><div><span>기준 진폭</span><b id="baselineTone">--</b><small>dBFS</small></div><div><span>현재 잔류</span><b id="residualTone">--</b><small>dBFS</small></div><div><span>변화량</span><b id="reductionValue">--</b><small>dB</small></div><div><span>현재 위상</span><b id="phaseValue">--</b><small>°</small></div></div><canvas id="ancCanvas" width="760" height="220"></canvas></article>
-      </section>
-
-      <section id="screen-map" class="screen"><p class="eyebrow">Noise Map</p><h1 class="page-title">전국 소음 지도</h1><p class="page-subtitle">공식 측정망과 시민 측정값을 구분해 표시합니다.</p><div class="filter-row"><button class="active" data-map-filter="official">공식 측정망</button><button class="active" data-map-filter="citizen">시민 측정</button><button class="active" data-map-filter="report">민원 기록</button></div><article class="card"><div class="button-row"><button id="loadMap" class="button soft" type="button">새로고침</button><button id="locateMe" class="button soft" type="button">내 위치</button></div><div id="map" class="map"></div><div class="map-counts"><span>공식 <b id="officialCount">0</b></span><span>시민 <b id="citizenCount">0</b></span></div><p id="mapStatus" class="status-text">지도 탭을 열면 준비합니다.</p></article></section>
-
-      <section id="screen-ai" class="screen"><p class="eyebrow">JSD AI</p><h1 class="page-title">AI 소음 상담</h1><p class="page-subtitle">측정 특징값을 바탕으로 상황과 실험 방법을 안내합니다.</p><div id="aiStatusChip" class="status-chip">연결 확인 중</div><article class="card chat-card"><div id="chat" class="chat"><div class="bubble ai"><b>JSD 안내</b><br>측정을 시작한 뒤 현재 소음이나 ANC 실험에 관해 질문해 보세요.</div></div><div class="prompt-row"><button type="button" data-prompt="현재 측정값을 해석해줘">측정값 해석</button><button type="button" data-prompt="300Hz ANC 실험 방법을 알려줘">300Hz 실험</button><button type="button" data-prompt="주파수가 흔들리는 이유가 뭐야?">주파수 흔들림</button></div><form id="chatForm" class="chat-form"><input id="chatInput" class="input" maxlength="500" placeholder="질문을 입력하세요"><button class="button primary compact" type="submit">전송</button></form></article></section>
-
-      <section id="screen-news" class="screen"><p class="eyebrow">Noise News</p><h1 class="page-title">소음 관련 소식</h1><div class="news-toolbar"><span id="newsStatus">불러오는 중</span><button id="refreshNews" class="button soft compact" type="button">새로고침</button></div><article class="card" id="newsScreenList"></article></section>
-    </main>
-
-    <nav class="tabbar"><button class="tab active" data-nav="home"><b>⌂</b><span>홈</span></button><button class="tab" data-nav="measure"><b>◉</b><span>측정</span></button><button class="tab" data-nav="anc"><b>〰</b><span>ANC</span></button><button class="tab" data-nav="map"><b>⌖</b><span>지도</span></button><button class="tab" data-nav="ai"><b>◇</b><span>상담</span></button><button class="tab" data-nav="news"><b>▤</b><span>소식</span></button></nav>
-  </div>
-
-  <div id="serverModal" class="modal" aria-hidden="true"><div class="sheet"><div class="sheet-handle"></div><h2>Apps Script 서버 연결</h2><p class="help">기존 Google Apps Script 웹 앱의 <code>/exec</code> 주소를 입력하면 지도·저장·AI·뉴스 기능을 사용할 수 있습니다.</p><input id="gasUrl" class="input" type="url" placeholder="https://script.google.com/macros/s/.../exec"><div class="button-row top-gap"><button id="testServer" class="button soft">연결 시험</button><button id="saveServerUrl" class="button primary">저장</button></div><div id="serverDiagnostics" class="device-box">아직 연결을 확인하지 않았습니다.</div><button id="closeServerModal" class="button soft full top-gap">닫기</button></div></div>
-  <div id="ancGuideModal" class="modal" aria-hidden="true"><div class="sheet"><div class="sheet-handle"></div><p class="eyebrow">ANC Guide</p><h2>강한 저주파 상쇄 원리</h2><div class="guide-diagram"><div>외부 소음</div><b>+</b><div>반대 위상음</div><b>=</b><div>잔류 감소</div></div><div class="guide-steps"><p><b>1.</b> 외부 소음과 ANC 출력 스피커를 분리합니다.</p><p><b>2.</b> 핸드폰과 스피커 위치를 고정합니다.</p><p><b>3.</b> 가장 강한 주파수를 찾고 목표를 잠급니다.</p><p><b>4.</b> 출력은 매우 낮게 시작하고 감소량을 확인합니다.</p></div><div class="button-row"><button class="button primary" data-modal-nav="anc">ANC 열기</button><button id="closeAncGuide" class="button soft">닫기</button></div></div></div>
-  <div id="reportModal" class="modal" aria-hidden="true"><div class="sheet"><div class="sheet-handle"></div><p class="eyebrow">Report Helper</p><h2>민원 기록 도우미</h2><div class="field"><label>소음 유형</label><select id="reportType" class="input"><option>공사 소음</option><option>교통·경적 소음</option><option>층간소음</option><option>사업장 소음</option><option>항공기·철도 소음</option><option>기타 생활소음</option></select></div><div class="field"><label>발생 장소</label><input id="reportAddress" class="input" placeholder="주소 또는 장소"></div><div class="field"><label>상황 설명</label><textarea id="reportDescription" class="textarea" placeholder="언제, 얼마나 자주, 어떤 소리인지 적어주세요."></textarea></div><div class="button-row"><button id="fillMeasurement" class="button soft">측정값 넣기</button><button id="buildReport" class="button primary">문안 만들기</button></div><div class="field"><label>생성된 문안</label><textarea id="reportDraft" class="textarea tall"></textarea></div><div class="button-row"><button id="copyReport" class="button soft">복사</button><button id="saveReport" class="button soft">기기에 저장</button></div><div class="official-links"><a href="https://www.epeople.go.kr/" target="_blank" rel="noopener">국민신문고</a><a href="https://floor.noiseinfo.or.kr/" target="_blank" rel="noopener">이웃사이센터</a></div><button id="closeReport" class="button soft full top-gap">닫기</button></div></div>
-  <div id="newsModal" class="modal" aria-hidden="true"><div class="sheet"><div class="sheet-handle"></div><p class="eyebrow">Noise News</p><h2 id="newsDetailTitle"></h2><div id="newsDetailMeta" class="detail-meta"></div><div id="newsDetailBody" class="detail-body"></div><a id="newsDetailLink" class="button primary full top-gap" target="_blank" rel="noopener">원문 기사 열기</a><button id="closeNewsModal" class="button soft full top-gap">닫기</button></div></div>
-  <div id="toast" class="toast" role="status"></div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script><script src="app.js"></script>
-</body>
-</html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#f5f7fb"><title>JSD · 도시 소음 지킴이</title><style>html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Segoe UI",sans-serif;background:#f5f7fb;color:#172033}#boot{min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px}#boot b{display:block;color:#153b73;font-size:20px}#boot span{display:block;margin-top:8px;color:#68758b;font-size:12px}</style></head><body><div id="boot"><div><b>JSD 도시 소음 지킴이</b><span>사이트를 불러오는 중입니다.</span></div></div><script>
+(async()=>{
+  const ungzip=async url=>{
+    const r=await fetch(url,{cache:'no-cache'}); if(!r.ok) throw new Error(`${url} 로드 실패`);
+    if(!('DecompressionStream' in window)) throw new Error('이 브라우저는 압축 해제를 지원하지 않습니다. 최신 Chrome을 사용해 주세요.');
+    const stream=r.body.pipeThrough(new DecompressionStream('gzip'));
+    return await new Response(stream).text();
+  };
+  try{
+    const [html,css,js1,js2]=await Promise.all([
+      ungzip('/assets/index.html.gz'),ungzip('/assets/styles.css.gz'),ungzip('/assets/app-1.js.gz'),ungzip('/assets/app-2.js.gz')
+    ]);
+    const parsed=new DOMParser().parseFromString(html,'text/html');
+    parsed.querySelectorAll('script').forEach(el=>el.remove());
+    parsed.querySelectorAll('link[href="styles.css"]').forEach(el=>el.remove());
+    document.documentElement.lang=parsed.documentElement.lang||'ko';
+    document.head.innerHTML=parsed.head.innerHTML;
+    const style=document.createElement('style'); style.textContent=css; document.head.appendChild(style);
+    document.body.replaceWith(parsed.body);
+    const run=()=>{const s=document.createElement('script');s.textContent=js1+js2;document.body.appendChild(s)};
+    if(window.L) run(); else {const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.crossOrigin='';s.onload=run;s.onerror=run;document.body.appendChild(s)}
+  }catch(error){console.error(error);document.body.innerHTML=`<div id="boot"><div><b>사이트를 불러오지 못했습니다.</b><span>${String(error.message||error)}</span></div></div>`}
+})();
+</script></body></html>

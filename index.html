@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#f5f7fb"><title>JSD · 도시 소음 지킴이</title><style>html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Segoe UI",sans-serif;background:#f5f7fb;color:#172033}#boot{min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px}#boot b{display:block;color:#153b73;font-size:20px}#boot span{display:block;margin-top:8px;color:#68758b;font-size:12px}</style></head><body><div id="boot"><div><b>JSD 도시 소음 지킴이</b><span>사이트를 불러오는 중입니다.</span></div></div><script>
 (async()=>{
+  const DEFAULT_GAS_URL='https://script.google.com/macros/s/AKfycbwHY7B15trgsBZZcug2snywAO2AVg8LfmpshAdxlGa0Afe9d_yW-tyaewmSOix5IrEl/exec';
+  const savedGasUrl=localStorage.getItem('jsd_gas_url')||'';
+  const validGasUrl=/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec(?:\?.*)?$/.test(savedGasUrl.trim());
+  if(!validGasUrl) localStorage.setItem('jsd_gas_url',DEFAULT_GAS_URL);
   const ungzip=async url=>{
     const r=await fetch(url,{cache:'no-cache'}); if(!r.ok) throw new Error(`${url} 로드 실패`);
     if(!('DecompressionStream' in window)) throw new Error('이 브라우저는 압축 해제를 지원하지 않습니다. 최신 Chrome을 사용해 주세요.');

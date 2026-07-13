@@ -15,7 +15,7 @@
 
   const decodeAsset=async url=>{
     let r;
-    try{r=await fetch(url+'?v=20260714-1',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
+    try{r=await fetch(url+'?v=20260714-2',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
     if(!r.ok) throw new Error(`${url} 로드 실패 (${r.status})`);
     let bytes;
     try{bytes=new Uint8Array(await r.arrayBuffer());}catch(error){throw new Error(`${url} 읽기 실패: ${error.message||error}`);}
@@ -25,7 +25,7 @@
 
   const decodeBase64Gzip=async url=>{
     let r;
-    try{r=await fetch(url+'?v=20260714-1',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
+    try{r=await fetch(url+'?v=20260714-2',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
     if(!r.ok) throw new Error(`${url} 로드 실패 (${r.status})`);
     const encoded=(await r.text()).replace(/\s+/g,'');
     let binary;
@@ -49,8 +49,9 @@
     document.head.innerHTML=parsed.head.innerHTML;
     const style=document.createElement('style');style.textContent=css;document.head.appendChild(style);
     document.body.replaceWith(parsed.body);
-    const loadLlmStatus=()=>{const p=document.createElement('script');p.src='/llm-status.js?v=20260714-1';p.defer=true;document.body.appendChild(p);};
-    const run=()=>{const s=document.createElement('script');s.textContent=js1+js2;document.body.appendChild(s);loadLlmStatus();};
+    const loadScript=src=>new Promise(resolve=>{const p=document.createElement('script');p.src=src;p.async=false;p.onload=resolve;p.onerror=resolve;document.body.appendChild(p);});
+    const loadEnhancements=async()=>{await loadScript('/llm-status.js?v=20260714-2');await loadScript('/feedback-update.js?v=20260714-2');};
+    const run=()=>{const s=document.createElement('script');s.textContent=js1+js2;document.body.appendChild(s);loadEnhancements();};
     if(window.L)run();else{const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.crossOrigin='';s.onload=run;s.onerror=run;document.body.appendChild(s);}
   }catch(error){
     console.error(error);

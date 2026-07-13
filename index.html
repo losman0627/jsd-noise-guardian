@@ -5,24 +5,42 @@
   const saved=localStorage.getItem('jsd_gas_url');
   if(!saved||!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/i.test(saved)) localStorage.setItem('jsd_gas_url',DEFAULT_GAS_URL);
 
-  const decodeAsset=async url=>{
-    let r;
-    try{r=await fetch(url+'?v=20260713-2',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
-    if(!r.ok) throw new Error(`${url} 로드 실패 (${r.status})`);
-    let bytes;
-    try{bytes=new Uint8Array(await r.arrayBuffer());}catch(error){throw new Error(`${url} 읽기 실패: ${error.message||error}`);}
-    const isGzip=bytes.length>2&&bytes[0]===0x1f&&bytes[1]===0x8b;
-    if(!isGzip) return new TextDecoder('utf-8').decode(bytes);
+  const gunzipBytes=async(bytes,label)=>{
     if(!('DecompressionStream' in window)) throw new Error('이 브라우저는 gzip 압축 해제를 지원하지 않습니다. 최신 Chrome 또는 Edge를 사용해 주세요.');
     try{
       const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
       return await new Response(stream).text();
-    }catch(error){throw new Error(`${url} 압축 해제 실패: ${error.message||error}`);}
+    }catch(error){throw new Error(`${label} 압축 해제 실패: ${error.message||error}`);}
+  };
+
+  const decodeAsset=async url=>{
+    let r;
+    try{r=await fetch(url+'?v=20260713-3',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
+    if(!r.ok) throw new Error(`${url} 로드 실패 (${r.status})`);
+    let bytes;
+    try{bytes=new Uint8Array(await r.arrayBuffer());}catch(error){throw new Error(`${url} 읽기 실패: ${error.message||error}`);}
+    const isGzip=bytes.length>2&&bytes[0]===0x1f&&bytes[1]===0x8b;
+    return isGzip?gunzipBytes(bytes,url):new TextDecoder('utf-8').decode(bytes);
+  };
+
+  const decodeBase64Gzip=async url=>{
+    let r;
+    try{r=await fetch(url+'?v=20260713-3',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
+    if(!r.ok) throw new Error(`${url} 로드 실패 (${r.status})`);
+    const encoded=(await r.text()).replace(/\s+/g,'');
+    let binary;
+    try{binary=atob(encoded);}catch(error){throw new Error(`${url} Base64 복원 실패: ${error.message||error}`);}
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+    return gunzipBytes(bytes,url);
   };
 
   try{
     const [html,css,js1,js2]=await Promise.all([
-      decodeAsset('/assets/index.html.gz'),decodeAsset('/assets/styles.css.gz'),decodeAsset('/assets/app-1.js.gz'),decodeAsset('/assets/app-2.js.gz')
+      decodeAsset('/assets/index.html.gz'),
+      decodeAsset('/assets/styles.css.gz'),
+      decodeAsset('/assets/app-1.js.gz'),
+      decodeBase64Gzip('/assets/app-2.js.gz.b64')
     ]);
     const parsed=new DOMParser().parseFromString(html,'text/html');
     parsed.querySelectorAll('script').forEach(el=>el.remove());

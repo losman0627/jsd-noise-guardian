@@ -1,0 +1,15 @@
+JSD 도시 소음 지킴이 v5 정적 점검 항목
+========================================
+
+- Cloudflare Pages 정적 파일 구조: index.html 루트 배치
+- 마이크 권한: HTTPS / secure-context 검사
+- 오디오 입력: echoCancellation, noiseSuppression, autoGainControl 비활성 요청 + 실제 getSettings 표시
+- 주파수 보간: -0.5 ~ +0.5 FFT bin 제한
+- 자동 검출: local prominence, background floor, continuity, confidence 사용
+- 지정 주파수 추적: 40~600Hz에서 입력한 주파수 주변을 별도 추적
+- ANC 목표: 시작 후 자동 변경 금지
+- ANC 잔류 분석: 전체 최대 피크가 아닌 잠긴 목표 주파수의 동기 검파 진폭 사용
+- ANC 안전: 기준보다 6~8dB 증가 시 자동 정지
+- 정지 처리: oscillator, delay, gain, timer, microphone track, AudioContext 정리
+- 장치 변경: devicechange 감지 및 사용자 알림
+- Apps Script: JSONP + payload_b64 방식

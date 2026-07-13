@@ -1,0 +1,10 @@
+{
+  "name": "JSD 도시 소음 지킴이",
+  "short_name": "JSD 소음",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6fb",
+  "theme_color": "#153b73",
+  "description": "소음 측정, 주파수 분석, 단일 저주파 ANC 원리 실험",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}

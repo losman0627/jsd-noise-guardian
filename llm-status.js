@@ -5,11 +5,8 @@
   if (!chip) return;
 
   const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwHY7B15trgsBZZcug2snywAO2AVg8LfmpshAdxlGa0Afe9d_yW-tyaewmSOix5IrEl/exec';
-  const validGasUrl = url => /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec(?:\?.*)?$/i.test(String(url || '').trim());
-  const getGasUrl = () => {
-    const saved = localStorage.getItem('jsd_gas_url');
-    return validGasUrl(saved) ? saved.trim() : DEFAULT_GAS_URL;
-  };
+  const getGasUrl = () => DEFAULT_GAS_URL;
+  try { localStorage.setItem('jsd_gas_url', DEFAULT_GAS_URL); } catch (_) {}
 
   const style = document.createElement('style');
   style.textContent = `
@@ -50,6 +47,18 @@
     queueMicrotask(() => { rendering = false; });
   }
 
+  function setTopServerStatus(kind, text, detail = '') {
+    const top = document.getElementById('serverStatus');
+    if (top) {
+      top.className = `server-status ${kind || ''}`;
+      const label = top.querySelector('span');
+      if (label) label.textContent = text;
+      top.title = detail;
+    }
+    const diagnostics = document.getElementById('serverDiagnostics');
+    if (diagnostics && detail) diagnostics.textContent = detail;
+  }
+
   function toast(message) {
     const el = document.getElementById('toast');
     if (!el) return;
@@ -68,20 +77,27 @@
 
   function jsonp(action, params = {}, timeout = 16000) {
     const gasUrl = getGasUrl();
-    if (!validGasUrl(gasUrl)) return Promise.reject(new Error('Apps Script 서버 주소가 올바르지 않습니다.'));
     return new Promise((resolve, reject) => {
       const callback = `jsd_llm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const script = document.createElement('script');
-      const timer = setTimeout(() => done(new Error('LLM 서버 응답 시간이 초과되었습니다.')), timeout);
+      let settled = false;
+      const timer = setTimeout(() => done(new Error('서버 응답 시간이 초과되었습니다.')), timeout);
       function done(error, data) {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         try { delete window[callback]; } catch (_) {}
         script.remove();
         error ? reject(error) : resolve(data);
       }
       window[callback] = data => done(null, data);
-      script.onerror = () => done(new Error('LLM 서버 연결에 실패했습니다.'));
-      const query = new URLSearchParams({action, callback, payload_b64: payloadB64(params)});
+      script.onerror = () => done(new Error('Apps Script 서버 연결에 실패했습니다.'));
+      const query = new URLSearchParams({
+        action,
+        callback,
+        payload_b64: payloadB64(params),
+        _ts: String(Date.now())
+      });
       script.src = `${gasUrl}?${query.toString()}`;
       document.head.appendChild(script);
     });
@@ -90,36 +106,57 @@
   function updateDiagnostics(health) {
     const box = document.getElementById('serverDiagnostics');
     if (!box || !health) return;
-    const lines = box.textContent.split('\n').filter(line => !line.startsWith('LLM:'));
-    lines.push(health.geminiConfigured === true ? `LLM: 연결 준비 완료 (${health.geminiModel || 'Gemini'})` : 'LLM: API 키 미설정');
-    box.textContent = lines.join('\n');
+    box.textContent = [
+      `백엔드: ${health.version || '버전 정보 없음'}`,
+      `서버 시간: ${health.serverTime || health.server_time || '확인 불가'}`,
+      health.sheetConnected === false ? `저장소 오류: ${health.sheetError || '연결 실패'}` : '저장소: 연결됨',
+      health.geminiConfigured === true ? `LLM: 연결 준비 완료 (${health.geminiModel || 'Gemini'})` : 'LLM: API 키 미설정'
+    ].join('\n');
+  }
+
+  async function healthWithRetry() {
+    let lastError;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        return await jsonp('health', {}, 14000);
+      } catch (error) {
+        lastError = error;
+        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 900));
+      }
+    }
+    throw lastError || new Error('서버 상태를 확인하지 못했습니다.');
   }
 
   async function verify(forceProbe = false) {
     if (busy) return;
     if (!navigator.onLine) {
       show('bad', '네트워크 오프라인 · 연결 대기');
+      setTopServerStatus('bad', '오프라인', '인터넷 연결을 확인해 주세요.');
       return;
     }
     busy = true;
     show('busy', forceProbe ? 'Gemini 실제 응답 확인 중…' : 'LLM 연결 확인 중…');
+    setTopServerStatus('busy', '확인 중', '현재 Apps Script 서버에 다시 연결하고 있습니다.');
     try {
-      const health = await jsonp('health', {}, 12000);
+      const health = await healthWithRetry();
       lastChecked = Date.now();
       if (!health?.ok) throw new Error(health?.error || '백엔드 상태 응답이 올바르지 않습니다.');
       updateDiagnostics(health);
+      setTopServerStatus('ok', '연결됨');
       if (health.geminiConfigured !== true) throw new Error('Gemini API 키가 설정되지 않았습니다.');
       lastModel = health.geminiModel || 'Gemini';
       if (forceProbe) {
-        const probe = await jsonp('askAI', {q: '연결 상태 확인입니다. OK라고만 답해 주세요.', connection_test: true}, 22000);
+        const probe = await jsonp('askAI', {q: '연결 상태 확인입니다. OK라고만 답해 주세요.', connection_test: true}, 24000);
         const answer = probe?.answer || probe?.text || probe?.message;
         if (!answer) throw new Error(probe?.error || 'Gemini가 응답하지 않았습니다.');
       }
       show('ok', `Gemini LLM 연결됨 · ${lastModel}`);
-      if (forceProbe) toast('Gemini LLM 실제 응답까지 확인했습니다.');
+      if (forceProbe) toast('서버와 Gemini 실제 응답까지 확인했습니다.');
     } catch (error) {
-      show('bad', 'LLM 연결 끊김 · 눌러서 재연결', error?.message || String(error));
-      if (forceProbe) toast(error?.message || 'LLM 재연결에 실패했습니다.');
+      const detail = error?.message || String(error);
+      show('bad', 'LLM 연결 끊김 · 눌러서 재연결', detail);
+      setTopServerStatus('bad', '연결 오류', detail);
+      if (forceProbe) toast(detail || 'LLM 재연결에 실패했습니다.');
     } finally {
       busy = false;
     }
@@ -156,7 +193,10 @@
     }
   });
 
-  window.addEventListener('offline', () => show('bad', '네트워크 오프라인 · 연결 대기'));
+  window.addEventListener('offline', () => {
+    show('bad', '네트워크 오프라인 · 연결 대기');
+    setTopServerStatus('bad', '오프라인', '인터넷 연결을 확인해 주세요.');
+  });
   window.addEventListener('online', () => verify(false));
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && Date.now() - lastChecked > 60000) verify(false);
@@ -166,5 +206,5 @@
   }, 60000);
 
   show('busy', 'LLM 연결 확인 중…');
-  setTimeout(() => verify(false), 350);
+  setTimeout(() => verify(false), 500);
 })();

@@ -76,6 +76,7 @@
       await loadScript('/feedback-update.js?v=20260714-3');
       await loadScript('/product-news-update.js?v=20260714-3');
       await loadLanguageTools();
+      await loadScript('/mobile-ui-polish.js?v=20260714-9');
     };
     const run=async()=>{await loadBackendBridge();const s=document.createElement('script');s.textContent=js1+js2;document.body.appendChild(s);loadEnhancements();};
     if(window.L)run();else{const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.crossOrigin='';s.onload=run;s.onerror=run;document.body.appendChild(s);}

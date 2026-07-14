@@ -16,7 +16,7 @@
 
   const decodeAsset=async url=>{
     let r;
-    try{r=await fetch(url+'?v=20260714-7',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
+    try{r=await fetch(url+'?v=20260714-8',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
     if(!r.ok) throw new Error(`${url} 로드 실패 (${r.status})`);
     let bytes;
     try{bytes=new Uint8Array(await r.arrayBuffer());}catch(error){throw new Error(`${url} 읽기 실패: ${error.message||error}`);}
@@ -26,7 +26,7 @@
 
   const decodeBase64Gzip=async url=>{
     let r;
-    try{r=await fetch(url+'?v=20260714-7',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
+    try{r=await fetch(url+'?v=20260714-8',{cache:'no-store'});}catch(error){throw new Error(`${url} 네트워크 요청 실패: ${error.message||error}`);}
     if(!r.ok) throw new Error(`${url} 로드 실패 (${r.status})`);
     const encoded=(await r.text()).replace(/\s+/g,'');
     let binary;
@@ -55,12 +55,27 @@
       await loadScript('/backend-bridge.js?v=20260714-5');
       try{await window.JSDBackendBridge?.ready;}catch(_){/* direct Apps Script fallback */}
     };
+    const loadLanguageTools=async()=>{
+      const RealMutationObserver=window.MutationObserver;
+      try{
+        // 기존 번역기의 지속 감시는 누락 문구를 다시 한글로 되돌릴 수 있어
+        // 최초 번역과 설정 UI만 실행하고 지속 번역은 보완 스크립트가 담당합니다.
+        window.MutationObserver=class StaticTranslationObserver{
+          observe(){}
+          disconnect(){}
+          takeRecords(){return []}
+        };
+        await loadScript('/i18n-layout.js?v=20260714-8');
+      }finally{
+        window.MutationObserver=RealMutationObserver;
+      }
+      await loadScript('/i18n-complete.js?v=20260714-8');
+    };
     const loadEnhancements=async()=>{
       await loadScript('/llm-status.js?v=20260714-5');
       await loadScript('/feedback-update.js?v=20260714-3');
       await loadScript('/product-news-update.js?v=20260714-3');
-      await loadScript('/i18n-layout.js?v=20260714-6');
-      await loadScript('/i18n-complete.js?v=20260714-7');
+      await loadLanguageTools();
     };
     const run=async()=>{await loadBackendBridge();const s=document.createElement('script');s.textContent=js1+js2;document.body.appendChild(s);loadEnhancements();};
     if(window.L)run();else{const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.crossOrigin='';s.onload=run;s.onerror=run;document.body.appendChild(s);}
